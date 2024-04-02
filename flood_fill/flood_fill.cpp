@@ -76,7 +76,7 @@ void DrawBoard(MaxtrixBoard& board)
 
 int main()
 {
-    ConsoleDevice dv;
+    WinConsoleDeviceAPI dv;
 
     dv.SetTitle(L"flood_fill");
     dv.SetCellSize(10, 10);
@@ -92,19 +92,18 @@ int main()
         {
             ConsoleDeviceEvent eEvent = dv.GetEvent();
 
-            if (eEvent == ConsoleDeviceEvent::MOUSE_CONSOLE_EVENT)
+            if (eEvent == ConsoleDeviceEvent::KEYBOARD_CONSOLE_EVENT)
             {
-                auto mouseEvent = dv.GetMouseEvent();
+                auto keyboardEvent = dv.GetKeyboardEvent();
 
-                if (mouseEvent->m_MouseState == MOUSE_DOWN_STATE)
+                if (keyboardEvent->m_nState == KEYBOARD_DOWN_STATE)
                 {
-                    std::cout << mouseEvent->m_MousePos.x << ":" << mouseEvent->m_MousePos.y << std::endl;
+                    std::cout << "KeyDown = " << keyboardEvent->m_nKey << std::endl;
                 }
-                else if(mouseEvent->m_MouseState == MOUSE_UP_STATE)
+                else if (keyboardEvent->m_nState == KEYBOARD_UP_STATE)
                 {
-                    std::cout << "Mouse Up :" << mouseEvent->m_MousePos.x << ":" << mouseEvent->m_MousePos.y << std::endl;
+                    std::cout << "KeyUp = " << keyboardEvent->m_nKey << std::endl;
                 }
-
             }
         }
         Sleep(10);

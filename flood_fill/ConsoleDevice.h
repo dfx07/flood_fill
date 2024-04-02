@@ -1,73 +1,36 @@
 #pragma once
 
 #include <Windows.h>
-#include <assert.h>
+
 #include <iostream>
+#include "ConsoleType.h"
 
-// Define macro over assert
-#define assert_msg_p(cond, fmt, ...) assert(cond || !fprintf_s(stderr, fmt, ##__VA_ARGS__))
-#define assert_msg(cond, fmt) assert(cond && fmt)
 
-#ifdef _UNICODE
-#define _T(pw) L ##pw
-#else
-#define _T(pw) pw
-#endif
-
-enum ConsoleDeviceEvent
+class WinConsoleDeviceAPI : public ConsoleDevice
 {
-	MOUSE_CONSOLE_EVENT,
-	KEYBOARD_CONSOLE_EVENT,
-	NONE_CONSOLE_EVENT,
-};
 
-enum ConsoleMouseState
-{
-	MOUSE_NONE_STATE = 0x0000,
-	MOUSE_MOVE_STATE = 0x0001,
-	MOUSE_UP_STATE   = 0x0002,
-	MOUSE_DOWN_STATE = 0x0004,
-};
-
-enum ConsoleMouseButton
-{
-	MOUSE_BUTTON_LEFT,
-	MOUSE_BUTTON_RIGHT
-};
-
-struct ConsoleMousePos
-{
-	int x;
-	int y;
-};
-
-struct MouseEventInfo
-{
-	ConsoleMouseButton	m_MouseButton;
-	DWORD				m_MouseState = 0;
-	ConsoleMousePos		m_MousePos;
-};
-
-
-class ConsoleDevice
-{
 public:
-	MouseEventInfo* GetMouseEvent()
+	virtual MouseEventInfo* GetMouseEvent()
 	{
-		return &m_MouseInfo;
+		return &m_MouseEventInfo;
+	}
+
+	virtual KeyBoardEventInfo* GetKeyboardEvent()
+	{
+		return &m_KeyBoardEventInfo;
 	}
 
 public:
-	ConsoleDevice()
+	WinConsoleDeviceAPI()
 	{
 		m_hHwndConsole = GetConsoleWindow();
 		m_hConsoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 		m_hConsoleInputHandle = GetStdHandle(STD_INPUT_HANDLE);
 	}
 
-	void SetWindowPosition(int xpos, int ypos)
+	virtual void SetWindowPosition(const int xPos, const int yPos)
 	{
-		SetWindowPos(m_hHwndConsole, NULL, xpos, ypos, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+		SetWindowPos(m_hHwndConsole, NULL, xPos, yPos, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 	}
 
 	bool PoolEvent()
@@ -83,7 +46,7 @@ public:
 		return false;
 	}
 
-	ConsoleDeviceEvent GetEvent()
+	virtual ConsoleDeviceEvent GetEvent()
 	{
 		DWORD events = 0;		// how many events took place
 		DWORD input_size = 1;	// how many characters to read
@@ -95,46 +58,61 @@ public:
 			if (m_ipRecord.EventType & MOUSE_EVENT)
 			{
 				eEvent = ConsoleDeviceEvent::MOUSE_CONSOLE_EVENT;
-				m_MouseInfo.m_MousePos = { m_ipRecord.Event.MouseEvent.dwMousePosition.X, m_ipRecord.Event.MouseEvent.dwMousePosition.Y };
+				m_MouseEventInfo.m_MousePos = { m_ipRecord.Event.MouseEvent.dwMousePosition.X, m_ipRecord.Event.MouseEvent.dwMousePosition.Y };
 
 				if (m_ipRecord.Event.MouseEvent.dwEventFlags & MOUSE_MOVED)
 				{
-					m_MouseInfo.m_MouseState = (m_MouseInfo.m_MouseState | ConsoleMouseState::MOUSE_MOVE_STATE);
+					m_MouseEventInfo.m_MouseState = (m_MouseEventInfo.m_MouseState | ConsoleMouseState::MOUSE_MOVE_STATE);
 				}
-				else if (m_ipRecord.Event.MouseEvent.dwEventFlags == 0 && !(m_MouseInfo.m_MouseState & MOUSE_DOWN_STATE))
+				else if (m_ipRecord.Event.MouseEvent.dwEventFlags == 0 && !(m_MouseEventInfo.m_MouseState & MOUSE_DOWN_STATE))
 				{
 					if (m_ipRecord.Event.MouseEvent.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)
 					{
-						m_MouseInfo.m_MouseButton = ConsoleMouseButton::MOUSE_BUTTON_LEFT;
+						m_MouseEventInfo.m_MouseButton = ConsoleMouseButton::MOUSE_BUTTON_LEFT;
 					}
 					else if (m_ipRecord.Event.MouseEvent.dwButtonState & RIGHTMOST_BUTTON_PRESSED)
 					{
-						m_MouseInfo.m_MouseButton = ConsoleMouseButton::MOUSE_BUTTON_RIGHT;
+						m_MouseEventInfo.m_MouseButton = ConsoleMouseButton::MOUSE_BUTTON_RIGHT;
 					}
 
-					m_MouseInfo.m_MouseState = ConsoleMouseState::MOUSE_DOWN_STATE;
+					m_MouseEventInfo.m_MouseState = ConsoleMouseState::MOUSE_DOWN_STATE;
 				}
 				else
 				{
-					if (m_MouseInfo.m_MouseState & MOUSE_DOWN_STATE)
+					if (m_MouseEventInfo.m_MouseState & MOUSE_DOWN_STATE)
 					{
-						m_MouseInfo.m_MouseState = MOUSE_UP_STATE;
+						m_MouseEventInfo.m_MouseState = MOUSE_UP_STATE;
 					}
 					else
 					{
-						m_MouseInfo.m_MouseState = MOUSE_NONE_STATE;
+						m_MouseEventInfo.m_MouseState = MOUSE_NONE_STATE;
 					}
 				}
 			}
 			else if (m_ipRecord.EventType & KEY_EVENT)
 			{
 				eEvent = ConsoleDeviceEvent::KEYBOARD_CONSOLE_EVENT;
+
+				int nAsciiChar = static_cast<int>(m_ipRecord.Event.KeyEvent.uChar.AsciiChar);
+
+				if (m_KeyBoardEventInfo.m_nState == ConsoleKeyboardState::KEYBOARD_DOWN_STATE &&
+					m_ipRecord.Event.KeyEvent.bKeyDown == false)
+				{
+					m_KeyBoardEventInfo.m_nState = ConsoleKeyboardState::KEYBOARD_UP_STATE;
+				}
+				else
+				{
+					m_KeyBoardEventInfo.m_nState = (m_ipRecord.Event.KeyEvent.bKeyDown) ? ConsoleKeyboardState::KEYBOARD_DOWN_STATE :
+						ConsoleKeyboardState::KEYBOARD_NONE_STATE;
+				}
+
+				m_KeyBoardEventInfo.m_nKey = nAsciiChar;
 			}
 		}
 		return eEvent;
 	}
 
-	void SetWindowCenter()
+	virtual void SetWindowCenter()
 	{
 		int xpos, ypos;
 		RECT rectClient, rectWindow;
@@ -147,7 +125,7 @@ public:
 		SetWindowPosition(xpos, ypos);
 	}
 
-	void SetTitle(const wchar_t* strTitle)
+	virtual void SetTitle(const wchar_t* strTitle)
 	{
 		SetConsoleTitle(strTitle);
 	}
@@ -183,13 +161,13 @@ public:
 		SetWindowPos(m_hHwndConsole, NULL, 0, 0, rectWindow.right - rectWindow.left + 1, rectWindow.bottom - rectWindow.top, SWP_NOMOVE | SWP_NOZORDER);
 	}
 
-	void SetFont(const wchar_t* strFont)
+	virtual void SetFont(const wchar_t* strFontFamily)
 	{
 		CONSOLE_FONT_INFOEX fontInfo;
 		fontInfo.cbSize = sizeof(CONSOLE_FONT_INFOEX);
 		::GetCurrentConsoleFontEx(m_hConsoleHandle, FALSE, &fontInfo);
 
-		wcscpy_s(fontInfo.FaceName, L"Arial");
+		wcscpy_s(fontInfo.FaceName, strFontFamily);
 
 		if (!SetCurrentConsoleFontEx(m_hConsoleHandle, FALSE, &fontInfo))
 		{
@@ -214,13 +192,7 @@ public:
 		FlushConsoleInputBuffer(m_hConsoleInputHandle);
 	}
 
-	void SetSingleSelection()
-	{
-		CONSOLE_SELECTION_INFO selectionInf;
-		GetConsoleSelectionInfo(&selectionInf);
-	}
-
-	void SetCellSize(const int nWidth, const int nHeight)
+	virtual void SetCellSize(const int nWidth, const int nHeight)
 	{
 		CONSOLE_FONT_INFOEX fontInfo;
 		fontInfo.cbSize = sizeof(CONSOLE_FONT_INFOEX);
@@ -235,7 +207,7 @@ public:
 		}
 	}
 
-	BOOL SetConsoleSize(int nCols, int nRows)
+	virtual bool SetConsoleSize(const int nRow, const int nCol)
 	{
 		CONSOLE_FONT_INFO fi;
 		CONSOLE_SCREEN_BUFFER_INFO bi;
@@ -260,21 +232,21 @@ public:
 							{
 								coord.X = bi.dwSize.X;
 								coord.Y = bi.dwSize.Y;
-								if (coord.X < nCols || coord.Y < nRows)
+								if (coord.X < nCol || coord.Y < nRow)
 								{
-									if (coord.X < nCols)
-										coord.X = nCols;
+									if (coord.X < nCol)
+										coord.X = nCol;
 
-									if (coord.Y < nRows)
-										coord.Y = nRows;
+									if (coord.Y < nRow)
+										coord.Y = nRow;
 
 									if (!SetConsoleScreenBufferSize(m_hConsoleHandle, coord))
 									{
 										return FALSE;
 									}
 								}
-								return SetWindowPos(m_hHwndConsole, NULL, rect.left, rect.top, nCols * fi.dwFontSize.X + bw,
-									nRows * fi.dwFontSize.Y + bh, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+								return SetWindowPos(m_hHwndConsole, NULL, rect.left, rect.top, nCol * fi.dwFontSize.X + bw,
+									nRow * fi.dwFontSize.Y + bh, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 							}
 						}
 					}
@@ -290,5 +262,6 @@ protected:
 	HANDLE			m_hConsoleInputHandle;
 	INPUT_RECORD	m_ipRecord;
 
-	MouseEventInfo	m_MouseInfo;
+	MouseEventInfo		m_MouseEventInfo;
+	KeyBoardEventInfo	m_KeyBoardEventInfo;
 };
