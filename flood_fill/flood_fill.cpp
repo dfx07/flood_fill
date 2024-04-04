@@ -86,23 +86,36 @@ int main()
     dv.HideScollBar();
     dv.ShowHideCursor(FALSE);
 
+    bool bINput = false;
+
     while (true)
     {
         if (dv.PoolEvent())
         {
             ConsoleDeviceEvent eEvent = dv.GetEvent();
 
-            if (eEvent == ConsoleDeviceEvent::KEYBOARD_CONSOLE_EVENT)
+            if (eEvent == ConsoleDeviceEvent::MOUSE_CONSOLE_EVENT)
             {
-                auto keyboardEvent = dv.GetKeyboardEvent();
+                auto mouseEvent = dv.GetMouseEvent();
 
-                if (keyboardEvent->m_nState == KEYBOARD_DOWN_STATE)
+                if (mouseEvent->m_MouseState & MOUSE_MOVE_STATE)
                 {
-                    std::cout << "KeyDown = " << keyboardEvent->m_nKey << std::endl;
+                    if (bINput)
+                    {
+                        std::cout << "Moved = " << mouseEvent->m_MousePos.x << " : " << mouseEvent->m_MousePos.y << std::endl;
+                    }
                 }
-                else if (keyboardEvent->m_nState == KEYBOARD_UP_STATE)
+                else if (mouseEvent->m_MouseState == MOUSE_DOWN_STATE)
                 {
-                    std::cout << "KeyUp = " << keyboardEvent->m_nKey << std::endl;
+                    std::cout << "MouseDown = " << mouseEvent->m_MousePos.x << " : " << mouseEvent->m_MousePos.y << std::endl;
+
+                    bINput = true;
+                }
+                else if (mouseEvent->m_MouseState == MOUSE_UP_STATE)
+                {
+                    std::cout << "MouseUp = " << std::endl;
+
+                    bINput = false;
                 }
             }
         }

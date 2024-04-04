@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <map>
 
 #include <iostream>
 #include "ConsoleType.h"
@@ -58,7 +59,6 @@ public:
 			if (m_ipRecord.EventType & MOUSE_EVENT)
 			{
 				eEvent = ConsoleDeviceEvent::MOUSE_CONSOLE_EVENT;
-				m_MouseEventInfo.m_MousePos = { m_ipRecord.Event.MouseEvent.dwMousePosition.X, m_ipRecord.Event.MouseEvent.dwMousePosition.Y };
 
 				if (m_ipRecord.Event.MouseEvent.dwEventFlags & MOUSE_MOVED)
 				{
@@ -88,6 +88,19 @@ public:
 						m_MouseEventInfo.m_MouseState = MOUSE_NONE_STATE;
 					}
 				}
+
+				if (m_MouseEventInfo.m_MouseState & ConsoleMouseState::MOUSE_MOVE_STATE)
+				{
+					if (m_MouseEventInfo.m_MousePos.x == m_ipRecord.Event.MouseEvent.dwMousePosition.X &&
+						m_MouseEventInfo.m_MousePos.y == m_ipRecord.Event.MouseEvent.dwMousePosition.Y)
+					{
+						m_MouseEventInfo.m_MouseState &= ~ConsoleMouseState::MOUSE_MOVE_STATE;
+
+						m_MouseEventInfo.m_MouseState |= ConsoleMouseState::MOUSE_MOVE_NO_OVER_STATE;
+					}
+				}
+
+				m_MouseEventInfo.m_MousePos = { m_ipRecord.Event.MouseEvent.dwMousePosition.X, m_ipRecord.Event.MouseEvent.dwMousePosition.Y };
 			}
 			else if (m_ipRecord.EventType & KEY_EVENT)
 			{
@@ -95,15 +108,18 @@ public:
 
 				int nAsciiChar = static_cast<int>(m_ipRecord.Event.KeyEvent.uChar.AsciiChar);
 
-				if (m_KeyBoardEventInfo.m_nState == ConsoleKeyboardState::KEYBOARD_DOWN_STATE &&
+				if (m_KeyBoardTracker[nAsciiChar] == ConsoleKeyboardState::KEYBOARD_DOWN_STATE &&
 					m_ipRecord.Event.KeyEvent.bKeyDown == false)
 				{
+					m_KeyBoardTracker[nAsciiChar] = ConsoleKeyboardState::KEYBOARD_UP_STATE;
 					m_KeyBoardEventInfo.m_nState = ConsoleKeyboardState::KEYBOARD_UP_STATE;
 				}
 				else
 				{
-					m_KeyBoardEventInfo.m_nState = (m_ipRecord.Event.KeyEvent.bKeyDown) ? ConsoleKeyboardState::KEYBOARD_DOWN_STATE :
+					m_KeyBoardTracker[nAsciiChar] = (m_ipRecord.Event.KeyEvent.bKeyDown) ? ConsoleKeyboardState::KEYBOARD_DOWN_STATE :
 						ConsoleKeyboardState::KEYBOARD_NONE_STATE;
+
+					m_KeyBoardEventInfo.m_nState = m_KeyBoardTracker[nAsciiChar];
 				}
 
 				m_KeyBoardEventInfo.m_nKey = nAsciiChar;
@@ -207,7 +223,7 @@ public:
 		}
 	}
 
-	virtual bool SetConsoleSize(const int nRow, const int nCol)
+	virtual bool SetConsoleSize(const int nCol, const int nRow)
 	{
 		CONSOLE_FONT_INFO fi;
 		CONSOLE_SCREEN_BUFFER_INFO bi;
@@ -245,8 +261,11 @@ public:
 										return FALSE;
 									}
 								}
-								return SetWindowPos(m_hHwndConsole, NULL, rect.left, rect.top, nCol * fi.dwFontSize.X + bw,
-									nRow * fi.dwFontSize.Y + bh, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+
+								int cx = nCol * fi.dwFontSize.X + bw * 2;
+								int cy = nRow * fi.dwFontSize.Y + bh;
+
+								return SetWindowPos(m_hHwndConsole, NULL, rect.left, rect.top, cx, cy, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 							}
 						}
 					}
@@ -257,11 +276,12 @@ public:
 	}
 
 protected:
-	HWND			m_hHwndConsole;
-	HANDLE			m_hConsoleHandle;
-	HANDLE			m_hConsoleInputHandle;
-	INPUT_RECORD	m_ipRecord;
+	HWND				m_hHwndConsole;
+	HANDLE				m_hConsoleHandle;
+	HANDLE				m_hConsoleInputHandle;
+	INPUT_RECORD		m_ipRecord;
 
 	MouseEventInfo		m_MouseEventInfo;
 	KeyBoardEventInfo	m_KeyBoardEventInfo;
+	std::map<int, int>	m_KeyBoardTracker;
 };

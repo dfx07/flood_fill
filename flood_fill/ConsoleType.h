@@ -21,10 +21,11 @@ enum ConsoleDeviceEvent
 
 enum ConsoleMouseState
 {
-	MOUSE_NONE_STATE	= 0x0000,
-	MOUSE_MOVE_STATE	= 0x0001,
-	MOUSE_UP_STATE		= 0x0002,
-	MOUSE_DOWN_STATE	= 0x0004,
+	MOUSE_NONE_STATE			= 0x0000,
+	MOUSE_MOVE_STATE			= 0x0001,
+	MOUSE_MOVE_NO_OVER_STATE	= 0x0002,
+	MOUSE_UP_STATE				= 0x0004,
+	MOUSE_DOWN_STATE			= 0x0008,
 };
 
 enum ConsoleKeyboardState
