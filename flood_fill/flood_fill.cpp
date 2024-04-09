@@ -79,7 +79,7 @@ int main()
     WinConsoleDeviceAPI dv;
 
     dv.SetTitle(L"flood_fill");
-    dv.SetCellSize(10, 10);
+    dv.SetCellSize(12, 12);
     dv.SetConsoleSize(50, 50);
 
     dv.SetWindowCenter();
@@ -90,6 +90,9 @@ int main()
 
     while (true)
     {
+        dv.SetClearColor(ConsoleColors::YELLOW);
+        dv.Clear();
+
         if (dv.PoolEvent())
         {
             ConsoleDeviceEvent eEvent = dv.GetEvent();
@@ -100,26 +103,25 @@ int main()
 
                 if (mouseEvent->m_MouseState & MOUSE_MOVE_STATE)
                 {
-                    if (bINput)
-                    {
-                        std::cout << "Moved = " << mouseEvent->m_MousePos.x << " : " << mouseEvent->m_MousePos.y << std::endl;
-                    }
+
                 }
                 else if (mouseEvent->m_MouseState == MOUSE_DOWN_STATE)
                 {
-                    std::cout << "MouseDown = " << mouseEvent->m_MousePos.x << " : " << mouseEvent->m_MousePos.y << std::endl;
+                    dv.SetXY(mouseEvent->m_MousePos.x, mouseEvent->m_MousePos.y);
+                    dv.SetTextColor(ConsoleColors::RED);
+                    dv.SetDrawText(L"0");
 
                     bINput = true;
                 }
                 else if (mouseEvent->m_MouseState == MOUSE_UP_STATE)
                 {
-                    std::cout << "MouseUp = " << std::endl;
-
                     bINput = false;
                 }
             }
         }
-        Sleep(10);
+        Sleep(50);
+
+        
     }
 
     getchar();

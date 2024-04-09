@@ -7,7 +7,7 @@
 #include "ConsoleType.h"
 
 
-class WinConsoleDeviceAPI : public ConsoleDevice
+class WinConsoleDeviceAPI : public ConsoleDevice, public ConsoleDeviecDrawable
 {
 
 public:
@@ -19,6 +19,29 @@ public:
 	virtual KeyBoardEventInfo* GetKeyboardEvent()
 	{
 		return &m_KeyBoardEventInfo;
+	}
+
+protected:
+	void UpdateScreenInfo()
+	{
+		m_ScreenInfo.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+		GetConsoleScreenBufferInfoEx(m_hConsoleHandle, &m_ScreenInfo);
+	}
+
+	unsigned char GetColorCode(unsigned char colorBackground, unsigned char colorForeground)
+	{
+		//return most signifigant bit of colorBackground and
+		//least signifigant bit of colorForground as one byte
+		return (colorBackground << 4) + colorForeground;
+	}
+
+	void UpdateColor(unsigned char nColCode)
+	{
+		//set front and back colors
+		if (!SetConsoleTextAttribute(m_hConsoleHandle, nColCode))
+		{
+			assert_msg_p(0, "Failed to change the font LastError=%d", GetLastError());
+		}
 	}
 
 public:
@@ -175,6 +198,8 @@ public:
 		GetWindowRect(m_hHwndConsole, &rectWindow);
 
 		SetWindowPos(m_hHwndConsole, NULL, 0, 0, rectWindow.right - rectWindow.left + 1, rectWindow.bottom - rectWindow.top, SWP_NOMOVE | SWP_NOZORDER);
+
+		UpdateScreenInfo();
 	}
 
 	virtual void SetFont(const wchar_t* strFontFamily)
@@ -260,6 +285,8 @@ public:
 									{
 										return FALSE;
 									}
+
+									UpdateScreenInfo();
 								}
 
 								int cx = nCol * fi.dwFontSize.X + bw * 2;
@@ -275,11 +302,97 @@ public:
 		return FALSE;
 	}
 
+	//function 
+
+public:
+	virtual void SetXY(const int x, const int y)
+	{
+		COORD c = { x,y };
+		SetConsoleCursorPosition(m_hConsoleHandle, c);
+	}
+
+	virtual void SetTextColor(ConsoleColors col)
+	{
+		if (m_colText == col)
+			return;
+
+		m_colText = col;
+
+		unsigned char nCode = GetColorCode(m_colBkg, m_colText);
+
+		UpdateColor(nCode);
+	}
+
+	virtual void SetBackgroundColor(ConsoleColors col)
+	{
+		if (m_colBkg == col)
+			return;
+
+		if (col == DEFAULT)
+		{
+			m_colBkg = m_colBkgScreen;
+		}
+		else
+		{
+			m_colBkg = col;
+		}
+
+		unsigned char nCode = GetColorCode(m_colBkg, m_colText);
+
+		UpdateColor(nCode);
+	}
+
+	virtual void SetDrawText(const wchar_t* strText)
+	{
+		std::wcout << strText;
+	}
+
+	virtual void ClearColorInfo()
+	{
+
+	}
+
+	virtual void SetBackgroundScreen(ConsoleColors col)
+	{
+
+	}
+
+	virtual void SetClearColor(ConsoleColors col = DEFAULT)
+	{
+		m_colBkgScreen = col;
+		m_colBkg = m_colBkgScreen;
+	}
+
+	virtual void Clear()
+	{
+		WORD wColor = BLACK;
+		wColor = ((m_colBkgScreen & 0x0F) << 4) + (m_colText & 0x0F);
+
+		SetConsoleTextAttribute(m_hConsoleHandle, wColor);
+
+		COORD coordScreen = { 0, 0 };
+		DWORD cCharsWritten;
+		CONSOLE_SCREEN_BUFFER_INFO csbi;
+		DWORD dwConSize;
+
+		GetConsoleScreenBufferInfo(m_hConsoleHandle, &csbi);
+		dwConSize = (csbi.dwSize.X + 1 ) * (csbi.dwSize.Y);
+		FillConsoleOutputCharacter(m_hConsoleHandle, TEXT(' '), dwConSize, coordScreen, &cCharsWritten);
+		GetConsoleScreenBufferInfo(m_hConsoleHandle, &csbi);
+		FillConsoleOutputAttribute(m_hConsoleHandle, csbi.wAttributes, dwConSize, coordScreen, &cCharsWritten);
+		SetConsoleCursorPosition(m_hConsoleHandle, coordScreen);
+		return;
+	}
+
 protected:
 	HWND				m_hHwndConsole;
 	HANDLE				m_hConsoleHandle;
 	HANDLE				m_hConsoleInputHandle;
 	INPUT_RECORD		m_ipRecord;
+	CONSOLE_SCREEN_BUFFER_INFOEX m_ScreenInfo;
+	ConsoleColors		m_colText{ WHITE };
+	ConsoleColors		m_colBkg{ DEFAULT };
+	ConsoleColors		m_colBkgScreen{ BLACK };
 
 	MouseEventInfo		m_MouseEventInfo;
 	KeyBoardEventInfo	m_KeyBoardEventInfo;

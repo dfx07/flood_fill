@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <assert.h>
 
@@ -60,6 +60,26 @@ struct KeyBoardEventInfo
 	int		m_nState;
 };
 
+
+enum ConsoleColors {
+	BLACK = 0, RED, GREEN, YELLOW, BLUE, PURPLE, CYAN, GREY,
+	LIGHTGREY, LIGHTRED, LIGHTGREEN, LIGHTYELLOW, LIGHTBLUE,
+	LIGHTPURPLE, LIGHTCYAN, WHITE, DEFAULT
+};
+
+
+interface ConsoleDeviecDrawable
+{
+	virtual void SetXY(const int x, const int y) = 0;
+	virtual void SetTextColor(ConsoleColors col) = 0;
+	virtual void SetDrawText(const wchar_t* strText) = 0;
+	virtual void SetBackgroundColor(ConsoleColors col) = 0;
+	virtual void ClearColorInfo() = 0;
+	virtual void SetBackgroundScreen(ConsoleColors col) = 0;
+	virtual void Clear() = 0;
+	virtual void SetClearColor(ConsoleColors col = DEFAULT) = 0;
+};
+
 interface ConsoleDevice
 {
 	virtual bool SetConsoleSize(const int nRow, const int nCol) = 0;
@@ -71,4 +91,7 @@ interface ConsoleDevice
 	virtual ConsoleDeviceEvent GetEvent() = 0;
 	virtual MouseEventInfo* GetMouseEvent() = 0;
 	virtual KeyBoardEventInfo* GetKeyboardEvent() = 0;
+
+	// function 
+
 };
